@@ -227,6 +227,47 @@
   <button class="fab" id="fabGravida" onclick="toggleGravida()"><span class="plus">🎉</span> <span id="fabTxt">Estou grávida!</span></button>
 
   <!-- MODAIS -->
+  <div class="modal-bg" id="modalDia">
+    <div class="modal">
+      <div class="puxador"></div>
+      <h2 id="diaTitulo">Dia</h2>
+      <div id="diaRegistros"></div>
+      <div class="campo" style="margin-top:4px;">
+        <label>Adicionar neste dia</label>
+        <div class="reg-botoes">
+          <button class="reg-btn" onclick="abrirMenstruacao(diaAtual)"><span class="ic">🩸</span><span class="tx"><div class="tt">Menstruação</div><div class="ds">Marcar fluxo, início ou fim</div></span><span class="seta">›</span></button>
+          <button class="reg-btn" onclick="abrirRelacao(diaAtual)"><span class="ic">💕</span><span class="tx"><div class="tt">Relação</div><div class="ds">Registrar que houve neste dia</div></span><span class="seta">›</span></button>
+          <button class="reg-btn" onclick="abrirRemedioDia(diaAtual)"><span class="ic">💊</span><span class="tx"><div class="tt">Anticoncepcional</div><div class="ds">Voltei a tomar / parei neste dia</div></span><span class="seta">›</span></button>
+          <button class="reg-btn" onclick="abrirSintomas(diaAtual)"><span class="ic">🌸</span><span class="tx"><div class="tt">Como me sinto</div><div class="ds">Sintomas e anotação do dia</div></span><span class="seta">›</span></button>
+        </div>
+      </div>
+      <div class="modal-botoes">
+        <button class="btn-cancelar" onclick="fecharModais()" style="flex:1;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="modalRemedioDia">
+    <div class="modal">
+      <div class="puxador"></div>
+      <h2>💊 Anticoncepcional</h2>
+      <div class="campo"><label>Data</label><input type="date" id="rdData"></div>
+      <div class="campo">
+        <label>O que aconteceu neste dia?</label>
+        <div class="chips" id="rdChips">
+          <div class="chip" data-r="voltei" onclick="selRemedioDia('voltei')">Voltei a tomar</div>
+          <div class="chip" data-r="parei" onclick="selRemedioDia('parei')">Parei de tomar</div>
+          <div class="chip" data-r="tomei" onclick="selRemedioDia('tomei')">Tomei normalmente</div>
+        </div>
+      </div>
+      <div class="campo"><label>Observação (opcional)</label><input type="text" id="rdObs" placeholder="Algo que queira anotar"></div>
+      <div class="modal-botoes">
+        <button class="btn-cancelar" onclick="fecharModais()">Cancelar</button>
+        <button class="btn-salvar" onclick="salvarRemedioDia()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-bg" id="modalMenstruacao">
     <div class="modal">
       <div class="puxador"></div>
@@ -543,7 +584,7 @@
       const ds = ano+'-'+String(mes+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
       const classe = classificaDia(ds);
       const ehHoje = ds===hojeStr();
-      const temNota = Object.values(eventos).some(e => e.data===ds && (e.tipo==='relacao'||e.tipo==='sintomas'));
+      const temNota = Object.values(eventos).some(e => e.data===ds && (e.tipo==='relacao'||e.tipo==='sintomas'||e.tipo==='remedio'));
       let cls='cal-dia'; if(classe==='menst')cls+=' menst'; else if(classe==='ovul')cls+=' ovul'; else if(classe==='fertil')cls+=' fertil'; if(ehHoje)cls+=' hoje';
       html += '<div class="'+cls+'" onclick="toqueDia(\''+ds+'\')">'+d+(temNota?'<span class="ponto"></span>':'')+'</div>';
     }
@@ -558,9 +599,42 @@
         '<div class="aviso-med" style="margin-top:12px;">Ciclo médio considerado: '+p.ciclo+' dias. Quanto mais você registrar, mais preciso fica. 💜</div>';
     } else { cp.innerHTML = '<div class="vazio"><span class="ic">📅</span>Registre sua menstruação para ver as previsões aqui.</div>'; }
   }
+  var diaAtual = null;
   window.toqueDia = function(ds){
-    document.getElementById('mData').value = ds;
-    abrirMenstruacao(true);
+    diaAtual = ds;
+    document.getElementById('diaTitulo').textContent = dataBonita(ds);
+    renderDia(ds);
+    document.getElementById('modalDia').classList.add('aberto');
+  };
+  function renderDia(ds){
+    const cont = document.getElementById('diaRegistros');
+    const ic = { menstruacao:'🩸', relacao:'💕', sintomas:'🌸', remedio:'💊' };
+    const fluxoTxt = { borra:'Só borra/escape', fraca:'Fluxo fraco', normal:'Fluxo normal', intensa:'Fluxo intenso', parou:'Menstruação parou' };
+    const remTxt = { voltei:'Voltei a tomar o remédio', parei:'Parei de tomar o remédio', tomei:'Tomei o remédio' };
+    const itens = [];
+    Object.keys(eventos).forEach(id=>{ const e=eventos[id]; if(e.data===ds) itens.push({id, ...e}); });
+    Object.keys(pesos).forEach(id=>{ if(pesos[id].data===ds) itens.push({id, ref:'peso', tipo:'peso', valor:pesos[id].valor}); });
+    Object.keys(barrigas).forEach(id=>{ if(barrigas[id].data===ds) itens.push({id, ref:'barriga', tipo:'barriga', valor:barrigas[id].valor}); });
+    if (itens.length===0){
+      cont.innerHTML = '<div class="vazio" style="padding:20px 10px;">Nada registrado neste dia ainda.<br><span style="font-size:12px;">Use os botões abaixo pra marcar o que aconteceu. 🤍</span></div>';
+      return;
+    }
+    cont.innerHTML = itens.map(e=>{
+      let tt='', ref=e.ref||'ev', icone=ic[e.tipo]||'•';
+      if (e.tipo==='menstruacao'){ tt = fluxoTxt[e.fluxo]||'Menstruação'; }
+      else if (e.tipo==='relacao'){ tt='Relação 💕'; if(e.obs) tt+=' · '+esc(e.obs); }
+      else if (e.tipo==='sintomas'){ tt = (e.sintomas&&e.sintomas.length)? e.sintomas.join(', ') : 'Anotação'; if(e.obs) tt+=' · '+esc(e.obs); }
+      else if (e.tipo==='remedio'){ tt = remTxt[e.acao]||'Remédio'; if(e.obs) tt+=' · '+esc(e.obs); icone='💊'; }
+      else if (e.tipo==='peso'){ tt = e.valor+' kg'; icone='⚖️'; }
+      else if (e.tipo==='barriga'){ tt = 'Barriga: '+e.valor+' cm'; icone='📏'; }
+      return '<div class="ev"><span class="ic">'+icone+'</span><div class="info" style="cursor:pointer;" onclick="editarRegistro(\''+ref+'\',\''+e.id+'\',\''+e.tipo+'\')"><div class="tt">'+esc(tt)+' <span style="color:var(--rosa);font-size:12px;">✎</span></div></div><button class="apagar" onclick="apagarDoDitia(\''+ref+'\',\''+e.id+'\')">✕</button></div>';
+    }).join('');
+  }
+  window.apagarDoDitia = function(ref,id){
+    if (!confirm('Apagar este registro?')) return;
+    const r = ref==='peso'?pesoRef:(ref==='barriga'?barrigaRef:eventosRef);
+    r.child(id).remove();
+    setTimeout(()=>{ if(diaAtual) renderDia(diaAtual); }, 200);
   };
   window.mudarMesCal = function(n){ mesCal = new Date(mesCal.getFullYear(), mesCal.getMonth()+n, 1); renderCalendario(); };
 
@@ -639,13 +713,15 @@
     document.getElementById('contHist').textContent = lista.length? lista.length+' registros':'';
     const el = document.getElementById('listaHistorico');
     if (lista.length===0){ el.innerHTML='<div class="vazio"><span class="ic">📖</span>Seu diário está vazinho.<br>Comece registrando algo na aba Hoje. 🤍</div>'; return; }
-    const ic = { menstruacao:'🩸', relacao:'💕', sintomas:'🌸', peso:'⚖️', barriga:'📏' };
+    const ic = { menstruacao:'🩸', relacao:'💕', sintomas:'🌸', peso:'⚖️', barriga:'📏', remedio:'💊' };
     const fluxoTxt = { borra:'Só borra/escape', fraca:'Fluxo fraco', normal:'Fluxo normal', intensa:'Fluxo intenso', parou:'Menstruação parou' };
+    const remTxt = { voltei:'Voltei a tomar o remédio', parei:'Parei de tomar o remédio', tomei:'Tomei o remédio' };
     el.innerHTML = lista.map(e=>{
       let tt='', meta=dataBonita(e.data);
       if (e.tipo==='menstruacao'){ tt = fluxoTxt[e.fluxo]||'Menstruação'; }
       else if (e.tipo==='relacao'){ tt='Relação 💕'; if(e.obs) meta+=' · '+esc(e.obs); }
       else if (e.tipo==='sintomas'){ tt = (e.sintomas&&e.sintomas.length)? e.sintomas.join(', ') : 'Anotação'; if(e.obs) meta+=' · '+esc(e.obs); }
+      else if (e.tipo==='remedio'){ tt = remTxt[e.acao]||'Remédio'; if(e.obs) meta+=' · '+esc(e.obs); }
       else if (e.tipo==='peso'){ tt = e.valor+' kg'; }
       else if (e.tipo==='barriga'){ tt = 'Barriga: '+e.valor+' cm'; }
       return '<div class="ev"><span class="ic">'+(ic[e.tipo]||'•')+'</span><div class="info" style="cursor:pointer;" onclick="editarRegistro(\''+e.ref+'\',\''+e.id+'\',\''+e.tipo+'\')"><div class="tt">'+esc(tt)+' <span style="color:var(--rosa);font-size:12px;">✎</span></div><div class="meta">'+meta+'</div></div><button class="apagar" onclick="apagarRegistro(\''+e.ref+'\',\''+e.id+'\')">✕</button></div>';
@@ -662,6 +738,7 @@
   // ===== EDITAR REGISTROS (tudo editável) =====
   window.editarRegistro = function(ref, id, tipo){
     editRef = ref; editId = id;
+    document.getElementById('modalDia').classList.remove('aberto');
     if (ref==='peso'){ const p=pesos[id]; document.getElementById('pData').value=p.data; document.getElementById('pValor').value=p.valor; document.getElementById('modalPeso').classList.add('aberto'); return; }
     if (ref==='barriga'){ const b=barrigas[id]; document.getElementById('bData').value=b.data; document.getElementById('bValor').value=b.valor; document.getElementById('modalBarriga').classList.add('aberto'); return; }
     const e = eventos[id];
@@ -679,14 +756,20 @@
       const wrap=document.getElementById('sSintomasChips');
       wrap.innerHTML = sintomasOpcoes.map(s=>'<div class="chip'+(sintomasSel.includes(s)?' sel':'')+'" onclick="toggleSintoma(this,\''+s+'\')">'+s+'</div>').join('');
       document.getElementById('modalSintomas').classList.add('aberto');
+    } else if (e.tipo==='remedio'){
+      remDiaSel = e.acao;
+      document.getElementById('rdData').value=e.data; document.getElementById('rdObs').value=e.obs||'';
+      document.querySelectorAll('#rdChips .chip').forEach(c=>c.classList.toggle('sel', c.dataset.r===e.acao));
+      document.getElementById('modalRemedioDia').classList.add('aberto');
     }
   };
   function limpaEdicao(){ editId=null; editRef=null; }
 
   // ===== MODAIS: abrir =====
-  window.abrirMenstruacao = function(jaComData){
-    editId=null; editRef=null;
-    if (!jaComData) document.getElementById('mData').value = hojeStr();
+  function fechaDia(){ document.getElementById('modalDia').classList.remove('aberto'); }
+  window.abrirMenstruacao = function(data){
+    editId=null; editRef=null; fechaDia();
+    document.getElementById('mData').value = (typeof data==='string' && data) ? data : hojeStr();
     fluxoSel = null;
     document.querySelectorAll('#mFluxoChips .chip').forEach(c=>c.classList.remove('sel'));
     document.getElementById('modalMenstruacao').classList.add('aberto');
@@ -701,7 +784,7 @@
     fecharModais();
   };
 
-  window.abrirRelacao = function(){ editId=null; editRef=null; document.getElementById('rData').value=hojeStr(); document.getElementById('rObs').value=''; document.getElementById('modalRelacao').classList.add('aberto'); };
+  window.abrirRelacao = function(data){ editId=null; editRef=null; fechaDia(); document.getElementById('rData').value=(typeof data==='string'&&data)?data:hojeStr(); document.getElementById('rObs').value=''; document.getElementById('modalRelacao').classList.add('aberto'); };
   window.salvarRelacao = function(){
     const data=document.getElementById('rData').value; if(!data){alert('Escolha a data.');return;}
     const obs=document.getElementById('rObs').value.trim();
@@ -710,9 +793,9 @@
     fecharModais();
   };
 
-  window.abrirSintomas = function(){
-    editId=null; editRef=null;
-    document.getElementById('sData').value=hojeStr();
+  window.abrirSintomas = function(data){
+    editId=null; editRef=null; fechaDia();
+    document.getElementById('sData').value=(typeof data==='string'&&data)?data:hojeStr();
     document.getElementById('sObs').value='';
     sintomasSel = [];
     const wrap = document.getElementById('sSintomasChips');
@@ -741,6 +824,27 @@
     const upd = { remedio:remedioSel };
     if (remedioSel==='parei') upd.remedioData = document.getElementById('remData').value;
     configRef.update(upd);
+    fecharModais();
+  };
+
+  // Remédio marcado num dia específico (evento do calendário)
+  var remDiaSel = null;
+  window.abrirRemedioDia = function(data){
+    editId=null; editRef=null; fechaDia();
+    remDiaSel = null;
+    document.getElementById('rdData').value=(typeof data==='string'&&data)?data:hojeStr();
+    document.getElementById('rdObs').value='';
+    document.querySelectorAll('#rdChips .chip').forEach(c=>c.classList.remove('sel'));
+    document.getElementById('modalRemedioDia').classList.add('aberto');
+  };
+  window.selRemedioDia = function(r){ remDiaSel=r; document.querySelectorAll('#rdChips .chip').forEach(c=>c.classList.toggle('sel', c.dataset.r===r)); };
+  window.salvarRemedioDia = function(){
+    const data=document.getElementById('rdData').value;
+    if(!data){alert('Escolha a data.');return;}
+    if(!remDiaSel){alert('Escolha o que aconteceu neste dia.');return;}
+    const obs=document.getElementById('rdObs').value.trim();
+    if (editId && editRef==='ev') eventosRef.child(editId).update({ data, acao:remDiaSel, obs });
+    else eventosRef.push({ tipo:'remedio', data, acao:remDiaSel, obs, criado:Date.now() });
     fecharModais();
   };
 
