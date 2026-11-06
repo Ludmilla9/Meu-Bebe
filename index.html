@@ -17,7 +17,8 @@
     --verde:#7BA88C; --verde-bg:#EAF3EE; --dourado:#D9A86A;
     --fertil:#F3B0C3; --ovul:#E86A8C; --menst:#C94F6B; --menst-bg:#FBE4EA;
   }
-  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--creme); color:var(--texto); min-height:100vh; padding:0 0 92px; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--creme); color:var(--texto); min-height:100vh; padding:0 0 92px; overflow-x:hidden; }
   header { background:linear-gradient(135deg,#E8A0B4,#C97A90); color:#fff; padding:22px 22px 24px; }
   .marca { display:flex; align-items:center; justify-content:space-between; }
   .marca .nome { font-family:Georgia,serif; font-size:16px; letter-spacing:1px; }
@@ -53,7 +54,7 @@
   .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .cal-head button { background:var(--rosa-bg); border:none; width:32px; height:32px; border-radius:9px; font-size:16px; color:var(--rosa-escuro); cursor:pointer; }
   .cal-head .mes { font-size:15px; font-weight:600; text-transform:capitalize; }
-  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; width:100%; }
   .cal-grid .dow { text-align:center; font-size:10px; color:var(--cinza); text-transform:uppercase; padding:4px 0; font-weight:600; }
   .cal-dia { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:13px; border-radius:9px; cursor:pointer; position:relative; color:var(--texto); }
   .cal-dia.vazio { visibility:hidden; }
